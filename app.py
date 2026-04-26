@@ -118,7 +118,9 @@ def view(pdf_id):
 @app.route('/download/<int:pdf_id>')
 def download(pdf_id):
     pdf = PDFFile.query.get_or_404(pdf_id)
-    return redirect(pdf.cloudinary_url)
+    # Force download as PDF by adding fl_attachment to Cloudinary URL
+    download_url = pdf.cloudinary_url.replace('/raw/upload/', '/raw/upload/fl_attachment/')
+    return redirect(download_url)
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -121,7 +121,6 @@ def view(pdf_id):
 @app.route('/download/<int:pdf_id>')
 def download(pdf_id):
     pdf = PDFFile.query.get_or_404(pdf_id)
-    # Fetch file from Cloudinary and serve as proper PDF download
     response = requests.get(pdf.cloudinary_url)
     return Response(
         response.content,

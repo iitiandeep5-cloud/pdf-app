@@ -11,6 +11,11 @@
     <a href="/" class="btn btn-secondary">← Back</a>
   </div>
 </div>
-<iframe src="{{ pdf.cloudinary_url }}" style="width:100%; height:82vh;
-        border:1px solid #ccc; border-radius:8px;"></iframe>
+
+<!-- Google PDF Viewer — works with Cloudinary URLs -->
+<iframe 
+  src="https://docs.google.com/viewer?url={{ pdf.cloudinary_url | urlencode }}&embedded=true"
+  style="width:100%; height:82vh; border:1px solid #ccc; border-radius:8px;"
+  frameborder="0">
+</iframe>
 {% endblock %}

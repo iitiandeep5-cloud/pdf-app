@@ -1,8 +1,9 @@
 import os
+import requests
 import cloudinary
 import cloudinary.uploader
 from flask import (Flask, render_template, request, redirect,
-                   url_for, flash)
+                   url_for, flash, Response)
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -43,6 +44,7 @@ with app.app_context():
         db.session.add(admin)
         db.session.commit()
 
+# ── Auth routes ───────────────────────────────────────────────────────────────
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -59,6 +61,7 @@ def logout():
     logout_user()
     return redirect(url_for('index'))
 
+# ── Main routes ───────────────────────────────────────────────────────────────
 @app.route('/')
 def index():
     files = PDFFile.query.order_by(PDFFile.upload_date.desc()).all()
@@ -118,9 +121,15 @@ def view(pdf_id):
 @app.route('/download/<int:pdf_id>')
 def download(pdf_id):
     pdf = PDFFile.query.get_or_404(pdf_id)
-    # Force download as PDF by adding fl_attachment to Cloudinary URL
-    download_url = pdf.cloudinary_url.replace('/raw/upload/', '/raw/upload/fl_attachment/')
-    return redirect(download_url)
+    # Fetch file from Cloudinary and serve as proper PDF download
+    response = requests.get(pdf.cloudinary_url)
+    return Response(
+        response.content,
+        mimetype='application/pdf',
+        headers={
+            'Content-Disposition': f'attachment; filename="{pdf.original_name}"'
+        }
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)

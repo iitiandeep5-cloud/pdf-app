@@ -15,7 +15,9 @@ class PDFFile(db.Model):
     original_name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.String(500), default='')
     upload_date = db.Column(db.DateTime, default=datetime.utcnow)
-    file_size = db.Column(db.Integer, default=0)  # in bytes
+    file_size = db.Column(db.Integer, default=0)
+    cloudinary_url = db.Column(db.String(500), default='')
+    cloudinary_id = db.Column(db.String(200), default='')
 
     def size_str(self):
         kb = self.file_size / 1024

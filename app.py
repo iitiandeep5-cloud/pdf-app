@@ -1,12 +1,13 @@
 import os
+import cloudinary
+import cloudinary.uploader
 from flask import (Flask, render_template, request, redirect,
-                   url_for, send_from_directory, flash)
+                   url_for, flash)
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 from models import db, User, PDFFile
-from datetime import datetime
 
 load_dotenv()
 
@@ -14,10 +15,13 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'fallback-secret')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///pdfs.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # 32 MB
+app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+cloudinary.config(
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+)
 
 db.init_app(app)
 
@@ -29,7 +33,6 @@ login_manager.login_view = 'login'
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# ── Create DB + admin user on first run ──────────────────────────────────────
 with app.app_context():
     db.create_all()
     if not User.query.filter_by(username=os.getenv('ADMIN_USERNAME', 'admin')).first():
@@ -40,7 +43,6 @@ with app.app_context():
         db.session.add(admin)
         db.session.commit()
 
-# ── Auth routes ───────────────────────────────────────────────────────────────
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -57,7 +59,6 @@ def logout():
     logout_user()
     return redirect(url_for('index'))
 
-# ── Main routes ───────────────────────────────────────────────────────────────
 @app.route('/')
 def index():
     files = PDFFile.query.order_by(PDFFile.upload_date.desc()).all()
@@ -77,29 +78,33 @@ def upload():
         flash('Please select a valid PDF file.')
         return redirect(url_for('index'))
 
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
-    size = os.path.getsize(filepath)
+    result = cloudinary.uploader.upload(
+        file,
+        resource_type='raw',
+        folder='pdf_library',
+        use_filename=True,
+        unique_filename=True
+    )
 
     pdf = PDFFile(
-        filename=filename,
+        filename=secure_filename(file.filename),
         original_name=file.filename,
         description=description,
-        file_size=size
+        file_size=result.get('bytes', 0),
+        cloudinary_url=result.get('secure_url', ''),
+        cloudinary_id=result.get('public_id', '')
     )
     db.session.add(pdf)
     db.session.commit()
-    flash(f'"{filename}" uploaded successfully!')
+    flash(f'"{file.filename}" uploaded successfully!')
     return redirect(url_for('index'))
 
 @app.route('/delete/<int:pdf_id>', methods=['POST'])
 @login_required
 def delete(pdf_id):
     pdf = PDFFile.query.get_or_404(pdf_id)
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], pdf.filename)
-    if os.path.exists(filepath):
-        os.remove(filepath)
+    if pdf.cloudinary_id:
+        cloudinary.uploader.destroy(pdf.cloudinary_id, resource_type='raw')
     db.session.delete(pdf)
     db.session.commit()
     flash(f'"{pdf.filename}" deleted.')
@@ -113,11 +118,7 @@ def view(pdf_id):
 @app.route('/download/<int:pdf_id>')
 def download(pdf_id):
     pdf = PDFFile.query.get_or_404(pdf_id)
-    return send_from_directory(app.config['UPLOAD_FOLDER'], pdf.filename, as_attachment=True)
-
-@app.route('/uploads/<filename>')
-def serve_pdf(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    return redirect(pdf.cloudinary_url)
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+  <div>
+    <h2>📄 {{ pdf.original_name }}</h2>
+    {% if pdf.description %}<p style="color:#666;">{{ pdf.description }}</p>{% endif %}
+    <small style="color:#999;">{{ pdf.size_str() }} · {{ pdf.upload_date.strftime('%B %d, %Y') }}</small>
+  </div>
+  <div>
+    <a href="/download/{{ pdf.id }}" class="btn btn-primary">⬇ Download</a>
+    <a href="/" class="btn btn-secondary">← Back</a>
+  </div>
+</div>
+<iframe src="/uploads/{{ pdf.filename }}" style="width:100%; height:82vh;
+        border:1px solid #ccc; border-radius:8px;"></iframe>
+{% endblock %}

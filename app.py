@@ -14,7 +14,10 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'fallback-secret')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///pdfs.db'
+database_url = os.getenv('DATABASE_URL', 'sqlite:///pdfs.db')
+if database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 
